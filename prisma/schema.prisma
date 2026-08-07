@@ -1,0 +1,108 @@
+// SHOPPR backend — store/product data layer.
+//
+// Deliberately excludes anything that's computed per-request rather than
+// stored: distance and ETA depend on the customer's current location vs. a
+// store's coordinates (see lib/geo.ts), and "open now" depends on `hours`
+// plus the current time — none of those are columns, they're derived at
+// query time in the API routes. `scoutsAvailable`/`availabilityConfidence`
+// aren't store data at all (they belong to the Scout/gig-worker system,
+// out of scope here) — the API layer still returns placeholder values for
+// them so the existing frontend contract doesn't break, clearly marked as
+// such in app/api/stores/route.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  category  String // Category union enforced in TS — SQLite has no native enum type
+  address   String
+  latitude  Float
+  longitude Float
+  // Per-weekday open/close times, 24h "HH:MM" strings, keyed "mon".."sun".
+  // A day can be omitted or null-valued to mean closed that day.
+  hours     Json
+  imageUrl  String?
+  products  Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId     String
+  name        String
+  category    String
+  // Stored in cents (USD) to avoid floating-point rounding on prices.
+  priceCents  Int
+  description String?
+  imageUrl    String?
+  // Available sizes, e.g. ["S","M","L"] or ["8","9","10"] — nullable since
+  // not every product (electronics, home goods) has sizes. Kept as a loose
+  // JSON array for now rather than a full variant/inventory model.
+  sizes       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([storeId])
+}
+
+model Scout {
+  id        String    @id @default(cuid())
+  name      String
+  rating    Float     @default(4.8)
+  photoUrl  String?
+  missions  Mission[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Mission {
+  id      String @id @default(cuid())
+  title   String
+  // Free text, NOT a Store relation — a Scout can be sent to any store, not
+  // just the ones in our curated Store directory above. Store/Product model
+  // a browsable catalog with real hours/coordinates; Mission models an
+  // errand, which is a broader domain (any real-world store a customer
+  // names). Forcing an FK here would incorrectly limit missions to only
+  // the handful of stores we've curated for browsing.
+  storeName String
+  status    String // MissionStatus union enforced in TS, see data/types.ts
+  scout     Scout?  @relation(fields: [scoutId], references: [id])
+  scoutId   String?
+  // Live snapshot of the Scout's progress on this specific errand — unlike
+  // Store's etaMinutes (a per-request distance calc), this is real mission
+  // state that only a Scout-tracking system can produce, so it's a stored
+  // column here rather than derived.
+  etaMinutes Int?
+  note       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([scoutId])
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  firstName    String
+  initials     String
+  // Matches data/types.ts's UserProfile shape — these are just counts for
+  // the profile panel UI, not real relations to saved items yet (there's
+  // no saved-items feature built). Demo-scoped: no real user data expected
+  // until the "put real data in" pass mentioned when this was built.
+  savedSizesCount     Int      @default(0)
+  favoriteStoresCount Int      @default(0)
+  savedItemsCount     Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

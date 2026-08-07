@@ -1,0 +1,20 @@
+node_modules
+.next
+out
+.env
+.env*.local
+.DS_Store
+*.log
+
+/app/generated/prisma
+/prisma/dev.db
+/prisma/dev.db-journal
+# Stray/empty — the real dev database lives at prisma/dev.db, not here
+/dev.db
+*.tsbuildinfo
+
+# Auto-installed by `prisma init` — AI-assistant reference docs, not app code
+/.agents
+/.windsurf
+/.claude/skills
+/skills-lock.json

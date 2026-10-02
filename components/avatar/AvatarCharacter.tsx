@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
+import { useToonGradientMap } from './toon-gradient';
 
 // Low-poly, Xbox-avatar-style character built entirely from primitive
 // three.js geometries. No external model files.
@@ -33,15 +34,30 @@ import type * as THREE from 'three';
 // `previewMode` drives those same joints from useFrame instead, for a live
 // "watch it move" preview — see the previewMode block near the bottom.
 //
+// Cartoon-polish pass (2026-10-02): user feedback was "still doesn't look
+// cartoon enough, looks flat/plasticky, needs variety, expression feels
+// off" — all four at once. Biggest single lever for the first two
+// complaints simultaneously: swapping meshStandardMaterial (realistic PBR)
+// for meshToonMaterial (flat cel-shaded bands) — see toon-gradient.ts.
+// Realistic shading on simple primitive shapes reads as "cheap 3D model";
+// cel shading on the same shapes reads as "intentionally stylized
+// character," which is the actual visual language cartoon avatars
+// (Bitmoji included) use. Expression got a genuine eye catchlight
+// (classic cartoon "alive eyes" trick — a plain unlit white dot, so it
+// reads as a sparkle regardless of scene lighting) and a wider smile
+// curve. Proportions pushed further past the previous Bitmoji pass.
+//
 // All the ORIGINAL literals (the ones tuned across ~10 rounds of visual
 // feedback) are preserved as the BASE_* values below, valid at the
 // baseline height/weight (170cm / 70kg -> heightScale = weightScale = 1),
-// so passing no props reproduces the exact previous look.
+// so passing no props reproduces the exact previous look (modulo this
+// pass's intentional proportion/material changes).
 
-const EYE_COLOR = '#F3EAD8';
+const EYE_COLOR = '#FFFFFF';
 const MOUTH_COLOR = '#A9765F'; // muted reddish-brown, close to skin — a hint, not a hole
 const NOSE_COLOR = '#DDB88C'; // a touch warmer/deeper than SKIN_COLOR, for definition
 const PUPIL_COLOR = '#1C1A17'; // matches the app's "ink" token
+const SPARKLE_COLOR = '#FFFFFF';
 
 // Phase 2 (outfits): skin/hair/shirt/pants/shoes are all caller-overridable
 // via the `outfit` prop — everything else (eyes, mouth, nose, pupils) stays
@@ -120,7 +136,8 @@ export function getAvatarScales(heightCm: number, weightKg: number) {
 }
 
 // Base (heightScale = weightScale = 1) leaf dimensions — every one of these
-// is the exact literal from the pre-Phase-1 version of this file.
+// traces back to the exact literal from the pre-Phase-1 version of this
+// file, just pushed further on the cartoon-polish pass below.
 const BASE = {
   // Shoes
   SHOE_WIDTH: 0.2, // weight axis
@@ -137,76 +154,92 @@ const BASE = {
   SHOE_HEEL_DEPTH: 0.09, // height axis
   SHOE_HEEL_OVERLAP: 0.03, // height axis
 
-  // Legs
-  LEG_RADIUS_TOP: 0.088, // weight axis
-  LEG_RADIUS_BOTTOM: 0.068, // weight axis
+  // Legs — slightly slimmer than the first Bitmoji pass (0.088/0.068),
+  // part of making the body read as simpler/secondary to the head.
+  LEG_RADIUS_TOP: 0.078, // weight axis
+  LEG_RADIUS_BOTTOM: 0.06, // weight axis
   LEG_HEIGHT: 0.95, // height axis
   LEG_SPACING_X: 0.13, // weight axis (wider stance on a bigger build)
   LEG_SHOE_OVERLAP: 0.05, // height axis
 
   // Hip connector
-  HIP_CONNECTOR_RADIUS_TOP: 0.127, // weight axis
-  HIP_CONNECTOR_RADIUS_BOTTOM: 0.09, // weight axis
+  HIP_CONNECTOR_RADIUS_TOP: 0.115, // weight axis
+  HIP_CONNECTOR_RADIUS_BOTTOM: 0.08, // weight axis
   HIP_CONNECTOR_HEIGHT: 0.2, // height axis
   HIP_CONNECTOR_Y_DROP: 0.22, // height axis (below HIP_Y)
 
-  // Torso
-  TORSO_RADIUS_TOP: 0.27, // weight axis
-  TORSO_RADIUS_BOTTOM: 0.12, // weight axis
+  // Torso — narrowed from the first Bitmoji pass (0.27/0.12) for more
+  // head-vs-body contrast, the main unfinished complaint from that pass.
+  TORSO_RADIUS_TOP: 0.235, // weight axis
+  TORSO_RADIUS_BOTTOM: 0.105, // weight axis
   TORSO_HEIGHT: 0.68, // height axis
   TORSO_HIP_OVERLAP: 0.14, // height axis
 
   // Shoulders
   SHOULDER_Y_DROP: 0.06, // height axis (below TORSO_TOP_Y)
   SHOULDER_X_MARGIN: 0.01, // weight axis (added atop TORSO_RADIUS_TOP)
-  SHOULDER_JOINT_RADIUS: 0.12, // weight axis
+  SHOULDER_JOINT_RADIUS: 0.105, // weight axis
 
   // Neck
-  NECK_RADIUS_TOP: 0.1, // weight axis
-  NECK_RADIUS_BOTTOM: 0.12, // weight axis
+  NECK_RADIUS_TOP: 0.09, // weight axis
+  NECK_RADIUS_BOTTOM: 0.105, // weight axis
   NECK_HEIGHT: 0.16, // height axis
   NECK_TORSO_OVERLAP: 0.05, // height axis
 
-  // Head (blended axis — see headScale below)
-  HEAD_RADIUS: 0.19,
+  // Head (blended axis — see headScale below). Pushed further past the
+  // first Bitmoji pass (0.19 -> 0.3 -> 0.34 here) — "still doesn't look
+  // cartoon enough" was explicit feedback, and head-to-body ratio is the
+  // single biggest lever for that.
+  HEAD_RADIUS: 0.34,
   HEAD_NECK_OVERLAP: 0.05, // height axis
 
-  // Face features — all scale with the head, via headScale
-  EYE_RADIUS: 0.022,
-  EYE_OFFSET_X: 0.065,
-  EYE_OFFSET_Y: 0.014,
+  // Face features — all scale with the head, via headScale. Eyes pushed
+  // bigger again, nose stays minimal, mouth arc widened for a clearer
+  // default smile (was reading as a flat/neutral line).
+  EYE_RADIUS: 0.042,
+  EYE_OFFSET_X: 0.1,
+  EYE_OFFSET_Y: 0.02,
   PUPIL_FORWARD_OFFSET_RATIO: 0.72, // ratio of EYE_RADIUS, no separate scale needed
-  EYEBROW_WIDTH: 0.039,
-  EYEBROW_HEIGHT: 0.011,
+  SPARKLE_RADIUS_RATIO: 0.3, // ratio of PUPIL_RADIUS
+  EYEBROW_WIDTH: 0.052,
+  EYEBROW_HEIGHT: 0.013,
   EYEBROW_DEPTH: 0.016,
-  EYEBROW_OFFSET_Y_EXTRA: 0.039, // added atop EYE_OFFSET_Y
-  NOSE_RADIUS: 0.028,
-  NOSE_OFFSET_Y: -0.012,
-  MOUTH_ARC_RADIUS: 0.025,
-  MOUTH_ARC_TUBE: 0.005,
-  MOUTH_OFFSET_Y: -0.048,
-  EAR_RADIUS: 0.047,
+  EYEBROW_OFFSET_Y_EXTRA: 0.055, // added atop EYE_OFFSET_Y
+  NOSE_RADIUS: 0.013,
+  NOSE_OFFSET_Y: -0.01,
+  MOUTH_ARC_RADIUS: 0.036,
+  MOUTH_ARC_TUBE: 0.006,
+  MOUTH_OFFSET_Y: -0.062,
+  EAR_RADIUS: 0.05,
 
-  // Arms
-  ARM_RADIUS: 0.062, // weight axis
+  // Arms — slimmer, matching the torso/leg narrowing above.
+  ARM_RADIUS: 0.052, // weight axis
   ARM_LENGTH: 0.7, // height axis
-  HAND_RADIUS: 0.088, // weight axis
-  THUMB_RADIUS: 0.045, // weight axis
-  SHOULDER_BRIDGE_RADIUS_TOP: 0.095, // weight axis
-  SHOULDER_BRIDGE_RADIUS_BOTTOM: 0.075, // weight axis
+  HAND_RADIUS: 0.08, // weight axis
+  THUMB_RADIUS: 0.04, // weight axis
+  SHOULDER_BRIDGE_RADIUS_TOP: 0.082, // weight axis
+  SHOULDER_BRIDGE_RADIUS_BOTTOM: 0.065, // weight axis
   SHOULDER_BRIDGE_HEIGHT: 0.12, // height axis
 } as const;
 
 // Angles and shape ratios that don't scale with either axis.
 const HAIR_TILT = 0.07;
 const EAR_SCALE: [number, number, number] = [0.85, 1, 0.4];
-const MOUTH_ARC_ANGLE = Math.PI * 0.55;
+// Widened from 0.55 to 0.68 — the previous arc read as a near-straight
+// line (flat/neutral expression complaint); this is visibly a smile curve.
+const MOUTH_ARC_ANGLE = Math.PI * 0.68;
 const MOUTH_ROTATION_Z = (3 * Math.PI) / 2 - MOUTH_ARC_ANGLE / 2;
 const THUMB_OFFSET_Y_RATIO = 0.35; // ratio of HAND_RADIUS
 const THUMB_OFFSET_Z_RATIO = 0.85; // ratio of HAND_RADIUS
 // Fraction of LEG_HEIGHT from the hip down to the knee — thigh slightly
 // longer than shin, which reads more natural than an exact 50/50 split.
 const KNEE_RATIO = 0.52;
+// Eye catchlight offset, as a fraction of EYE_RADIUS — toward the upper-
+// left of each pupil, a fixed "light source" position regardless of the
+// scene's actual lighting (this is a cartoon convention, not physically
+// simulated).
+const SPARKLE_OFFSET_X_RATIO = -0.32;
+const SPARKLE_OFFSET_Y_RATIO = 0.32;
 
 function computeDimensions(heightScale: number, weightScale: number) {
   const h = (v: number) => v * heightScale;
@@ -302,6 +335,9 @@ function computeDimensions(heightScale: number, weightScale: number) {
   const EYE_OFFSET_Y = f(BASE.EYE_OFFSET_Y);
   const PUPIL_RADIUS = EYE_RADIUS * 0.5;
   const PUPIL_FORWARD_OFFSET = EYE_RADIUS * BASE.PUPIL_FORWARD_OFFSET_RATIO;
+  const SPARKLE_RADIUS = PUPIL_RADIUS * BASE.SPARKLE_RADIUS_RATIO;
+  const SPARKLE_OFFSET_X = PUPIL_RADIUS * SPARKLE_OFFSET_X_RATIO;
+  const SPARKLE_OFFSET_Y = PUPIL_RADIUS * SPARKLE_OFFSET_Y_RATIO;
 
   const EYEBROW_WIDTH = f(BASE.EYEBROW_WIDTH);
   const EYEBROW_HEIGHT = f(BASE.EYEBROW_HEIGHT);
@@ -381,6 +417,9 @@ function computeDimensions(heightScale: number, weightScale: number) {
     EYE_OFFSET_Y,
     PUPIL_RADIUS,
     PUPIL_FORWARD_OFFSET,
+    SPARKLE_RADIUS,
+    SPARKLE_OFFSET_X,
+    SPARKLE_OFFSET_Y,
     EYEBROW_WIDTH,
     EYEBROW_HEIGHT,
     EYEBROW_DEPTH,
@@ -404,8 +443,11 @@ function computeDimensions(heightScale: number, weightScale: number) {
     SHOULDER_BRIDGE_RADIUS_BOTTOM,
     SHOULDER_BRIDGE_HEIGHT,
     // Overall figure height (feet at 0 to top of head/hair) — callers use
-    // this to frame the camera instead of assuming a fixed constant.
-    TOTAL_HEIGHT: Math.max(HAIR_CENTER_Y, HEAD_CENTER_Y + HEAD_RADIUS),
+    // this to frame the camera instead of assuming a fixed constant. The
+    // hair is a dome (half-sphere) centered at HAIR_CENTER_Y, so its own
+    // top is HAIR_CENTER_Y + HAIR_RADIUS above that, not HAIR_CENTER_Y
+    // itself.
+    TOTAL_HEIGHT: Math.max(HAIR_CENTER_Y + HAIR_RADIUS, HEAD_CENTER_Y + HEAD_RADIUS),
   };
 }
 
@@ -420,6 +462,7 @@ function Leg({
   d,
   pantsColor,
   shoeColor,
+  toon,
   hipRef,
   kneeRef,
   hipRotation,
@@ -429,6 +472,7 @@ function Leg({
   d: Dimensions;
   pantsColor: string;
   shoeColor: string;
+  toon: THREE.Texture;
   hipRef: React.RefObject<THREE.Group>;
   kneeRef: React.RefObject<THREE.Group>;
   hipRotation: [number, number, number];
@@ -442,20 +486,20 @@ function Leg({
       {/* Thigh */}
       <mesh position={[0, -d.THIGH_LENGTH / 2, 0]}>
         <cylinderGeometry args={[d.LEG_RADIUS_TOP, d.LEG_RADIUS_KNEE, d.THIGH_LENGTH, 32]} />
-        <meshStandardMaterial color={pantsColor} roughness={0.7} />
+        <meshToonMaterial color={pantsColor} gradientMap={toon} />
       </mesh>
 
       {/* Knee joint */}
       <mesh position={[0, -d.THIGH_LENGTH, 0]}>
         <sphereGeometry args={[d.KNEE_JOINT_RADIUS, 32, 32]} />
-        <meshStandardMaterial color={pantsColor} roughness={0.7} />
+        <meshToonMaterial color={pantsColor} gradientMap={toon} />
       </mesh>
 
       <group ref={kneeRef} position={[0, -d.THIGH_LENGTH, 0]} rotation={kneeRotation}>
         {/* Shin */}
         <mesh position={[0, -d.SHIN_LENGTH / 2, 0]}>
           <cylinderGeometry args={[d.LEG_RADIUS_KNEE, d.LEG_RADIUS_BOTTOM, d.SHIN_LENGTH, 32]} />
-          <meshStandardMaterial color={pantsColor} roughness={0.7} />
+          <meshToonMaterial color={pantsColor} gradientMap={toon} />
         </mesh>
 
         {/* Foot ("shoe") — body box + narrower toe box (front) + narrower
@@ -463,15 +507,15 @@ function Leg({
         <group position={[0, -d.SHIN_LENGTH, 0]}>
           <mesh position={[0, footY(d.SHOE_CENTER_Y), d.SHOE_CENTER_Z]}>
             <boxGeometry args={[d.SHOE_WIDTH, d.SHOE_HEIGHT, d.SHOE_DEPTH]} />
-            <meshStandardMaterial color={shoeColor} roughness={0.6} />
+            <meshToonMaterial color={shoeColor} gradientMap={toon} />
           </mesh>
           <mesh position={[0, footY(d.SHOE_TOE_CENTER_Y), d.SHOE_TOE_CENTER_Z]}>
             <boxGeometry args={[d.SHOE_TOE_WIDTH, d.SHOE_TOE_HEIGHT, d.SHOE_TOE_DEPTH]} />
-            <meshStandardMaterial color={shoeColor} roughness={0.6} />
+            <meshToonMaterial color={shoeColor} gradientMap={toon} />
           </mesh>
           <mesh position={[0, footY(d.SHOE_HEEL_CENTER_Y), d.SHOE_HEEL_CENTER_Z]}>
             <boxGeometry args={[d.SHOE_HEEL_WIDTH, d.SHOE_HEEL_HEIGHT, d.SHOE_HEEL_DEPTH]} />
-            <meshStandardMaterial color={shoeColor} roughness={0.6} />
+            <meshToonMaterial color={shoeColor} gradientMap={toon} />
           </mesh>
         </group>
       </group>
@@ -496,6 +540,7 @@ export function AvatarCharacter({
   const d = computeDimensions(heightScale, weightScale);
   const colors = { ...DEFAULT_OUTFIT, ...outfit };
   const p = { ...DEFAULT_POSE, ...pose };
+  const toon = useToonGradientMap();
 
   const headRef = useRef<THREE.Group>(null);
   const leftArmRef = useRef<THREE.Group>(null);
@@ -540,33 +585,29 @@ export function AvatarCharacter({
         {/* Neck */}
         <mesh position={[0, d.NECK_HEIGHT / 2, 0]}>
           <cylinderGeometry args={[d.NECK_RADIUS_TOP, d.NECK_RADIUS_BOTTOM, d.NECK_HEIGHT, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
 
         {/* Head */}
         <mesh position={[0, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y, 0]}>
           <sphereGeometry args={[d.HEAD_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
 
         {/* Hair */}
         <mesh position={[0, d.HAIR_CENTER_Y - d.NECK_BOTTOM_Y, 0]} rotation={[0, 0, HAIR_TILT]}>
           <sphereGeometry args={[d.HAIR_RADIUS, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          <meshStandardMaterial color={colors.hairColor} roughness={0.85} />
+          <meshToonMaterial color={colors.hairColor} gradientMap={toon} />
         </mesh>
 
         {/* Eyes */}
-        <mesh
-          position={[-d.EYE_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y, d.HEAD_RADIUS * 0.9]}
-        >
+        <mesh position={[-d.EYE_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y, d.HEAD_RADIUS * 0.9]}>
           <sphereGeometry args={[d.EYE_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={EYE_COLOR} roughness={0.4} />
+          <meshToonMaterial color={EYE_COLOR} gradientMap={toon} />
         </mesh>
-        <mesh
-          position={[d.EYE_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y, d.HEAD_RADIUS * 0.9]}
-        >
+        <mesh position={[d.EYE_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y, d.HEAD_RADIUS * 0.9]}>
           <sphereGeometry args={[d.EYE_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={EYE_COLOR} roughness={0.4} />
+          <meshToonMaterial color={EYE_COLOR} gradientMap={toon} />
         </mesh>
 
         {/* Pupils */}
@@ -578,7 +619,7 @@ export function AvatarCharacter({
           ]}
         >
           <sphereGeometry args={[d.PUPIL_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={PUPIL_COLOR} roughness={0.5} />
+          <meshToonMaterial color={PUPIL_COLOR} gradientMap={toon} />
         </mesh>
         <mesh
           position={[
@@ -588,7 +629,34 @@ export function AvatarCharacter({
           ]}
         >
           <sphereGeometry args={[d.PUPIL_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={PUPIL_COLOR} roughness={0.5} />
+          <meshToonMaterial color={PUPIL_COLOR} gradientMap={toon} />
+        </mesh>
+
+        {/* Eye catchlights — classic cartoon "alive eyes" trick. Plain
+            unlit material on purpose: a real light-reactive sparkle would
+            dim or vanish depending on scene lighting/angle, but a cartoon
+            catchlight is supposed to always read as a bright dot regardless
+            of how the character is lit. This is what was missing before
+            ("dead eyes" feedback) — the pupils had no highlight at all. */}
+        <mesh
+          position={[
+            -d.EYE_OFFSET_X + d.SPARKLE_OFFSET_X,
+            d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y + d.SPARKLE_OFFSET_Y,
+            d.HEAD_RADIUS * 0.9 + d.PUPIL_FORWARD_OFFSET + d.PUPIL_RADIUS * 0.6,
+          ]}
+        >
+          <sphereGeometry args={[d.SPARKLE_RADIUS, 16, 16]} />
+          <meshBasicMaterial color={SPARKLE_COLOR} />
+        </mesh>
+        <mesh
+          position={[
+            d.EYE_OFFSET_X + d.SPARKLE_OFFSET_X,
+            d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.EYE_OFFSET_Y + d.SPARKLE_OFFSET_Y,
+            d.HEAD_RADIUS * 0.9 + d.PUPIL_FORWARD_OFFSET + d.PUPIL_RADIUS * 0.6,
+          ]}
+        >
+          <sphereGeometry args={[d.SPARKLE_RADIUS, 16, 16]} />
+          <meshBasicMaterial color={SPARKLE_COLOR} />
         </mesh>
 
         {/* Eyebrows */}
@@ -601,7 +669,7 @@ export function AvatarCharacter({
           rotation={[0, 0, 0.12]}
         >
           <boxGeometry args={[d.EYEBROW_WIDTH, d.EYEBROW_HEIGHT, d.EYEBROW_DEPTH]} />
-          <meshStandardMaterial color={colors.hairColor} roughness={0.8} />
+          <meshToonMaterial color={colors.hairColor} gradientMap={toon} />
         </mesh>
         <mesh
           position={[
@@ -612,13 +680,13 @@ export function AvatarCharacter({
           rotation={[0, 0, -0.12]}
         >
           <boxGeometry args={[d.EYEBROW_WIDTH, d.EYEBROW_HEIGHT, d.EYEBROW_DEPTH]} />
-          <meshStandardMaterial color={colors.hairColor} roughness={0.8} />
+          <meshToonMaterial color={colors.hairColor} gradientMap={toon} />
         </mesh>
 
         {/* Nose */}
         <mesh position={[0, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y + d.NOSE_OFFSET_Y, d.NOSE_FORWARD_Z]}>
           <sphereGeometry args={[d.NOSE_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={NOSE_COLOR} roughness={0.8} />
+          <meshToonMaterial color={NOSE_COLOR} gradientMap={toon} />
         </mesh>
 
         {/* Mouth */}
@@ -627,34 +695,34 @@ export function AvatarCharacter({
           rotation={[0, 0, MOUTH_ROTATION_Z]}
         >
           <torusGeometry args={[d.MOUTH_ARC_RADIUS, d.MOUTH_ARC_TUBE, 32, 32, MOUTH_ARC_ANGLE]} />
-          <meshStandardMaterial color={MOUTH_COLOR} roughness={0.6} />
+          <meshToonMaterial color={MOUTH_COLOR} gradientMap={toon} />
         </mesh>
 
         {/* Ears */}
         <mesh position={[-d.EAR_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y, 0]} scale={EAR_SCALE}>
           <sphereGeometry args={[d.EAR_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
         <mesh position={[d.EAR_OFFSET_X, d.HEAD_CENTER_Y - d.NECK_BOTTOM_Y, 0]} scale={EAR_SCALE}>
           <sphereGeometry args={[d.EAR_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
       </group>
 
       {/* Torso ("shirt") — tapered, wider at the shoulders than the waist */}
       <mesh position={[0, d.TORSO_CENTER_Y, 0]}>
         <cylinderGeometry args={[d.TORSO_RADIUS_TOP, d.TORSO_RADIUS_BOTTOM, d.TORSO_HEIGHT, 32]} />
-        <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+        <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
       </mesh>
 
       {/* Shoulder joints */}
       <mesh position={[-d.SHOULDER_X, d.SHOULDER_Y, 0]}>
         <sphereGeometry args={[d.SHOULDER_JOINT_RADIUS, 32, 32]} />
-        <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+        <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
       </mesh>
       <mesh position={[d.SHOULDER_X, d.SHOULDER_Y, 0]}>
         <sphereGeometry args={[d.SHOULDER_JOINT_RADIUS, 32, 32]} />
-        <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+        <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
       </mesh>
 
       {/* Arms — each a pivot group anchored at the shoulder, limb + hand
@@ -672,21 +740,21 @@ export function AvatarCharacter({
               32,
             ]}
           />
-          <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+          <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
         </mesh>
         <mesh position={[0, -d.ARM_LENGTH / 2, 0]}>
           <capsuleGeometry args={[d.ARM_RADIUS, d.ARM_CAPSULE_LENGTH, 32, 32]} />
-          <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+          <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
         </mesh>
         <mesh position={[0, -d.ARM_LENGTH + d.HAND_RADIUS * 0.5, 0]}>
           <sphereGeometry args={[d.HAND_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
         <mesh
           position={[0, -d.ARM_LENGTH + d.HAND_RADIUS * 0.5 + d.THUMB_OFFSET_Y, d.THUMB_OFFSET_Z]}
         >
           <sphereGeometry args={[d.THUMB_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
       </group>
       <group ref={rightArmRef} position={[d.SHOULDER_X, d.SHOULDER_Y, 0]} rotation={[0, 0, p.rightArmRotation]}>
@@ -699,21 +767,21 @@ export function AvatarCharacter({
               32,
             ]}
           />
-          <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+          <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
         </mesh>
         <mesh position={[0, -d.ARM_LENGTH / 2, 0]}>
           <capsuleGeometry args={[d.ARM_RADIUS, d.ARM_CAPSULE_LENGTH, 32, 32]} />
-          <meshStandardMaterial color={colors.shirtColor} roughness={0.7} />
+          <meshToonMaterial color={colors.shirtColor} gradientMap={toon} />
         </mesh>
         <mesh position={[0, -d.ARM_LENGTH + d.HAND_RADIUS * 0.5, 0]}>
           <sphereGeometry args={[d.HAND_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
         <mesh
           position={[0, -d.ARM_LENGTH + d.HAND_RADIUS * 0.5 + d.THUMB_OFFSET_Y, d.THUMB_OFFSET_Z]}
         >
           <sphereGeometry args={[d.THUMB_RADIUS, 32, 32]} />
-          <meshStandardMaterial color={colors.skinColor} roughness={0.8} />
+          <meshToonMaterial color={colors.skinColor} gradientMap={toon} />
         </mesh>
       </group>
 
@@ -730,7 +798,7 @@ export function AvatarCharacter({
             32,
           ]}
         />
-        <meshStandardMaterial color={colors.pantsColor} roughness={0.7} />
+        <meshToonMaterial color={colors.pantsColor} gradientMap={toon} />
       </mesh>
 
       {/* Legs — hip + knee pivot groups (see the Leg component above) */}
@@ -739,6 +807,7 @@ export function AvatarCharacter({
         d={d}
         pantsColor={colors.pantsColor}
         shoeColor={colors.shoeColor}
+        toon={toon}
         hipRef={leftHipRef}
         kneeRef={leftKneeRef}
         hipRotation={[p.leftHipSwing, 0, 0]}
@@ -749,6 +818,7 @@ export function AvatarCharacter({
         d={d}
         pantsColor={colors.pantsColor}
         shoeColor={colors.shoeColor}
+        toon={toon}
         hipRef={rightHipRef}
         kneeRef={rightKneeRef}
         hipRotation={[p.rightHipSwing, 0, 0]}

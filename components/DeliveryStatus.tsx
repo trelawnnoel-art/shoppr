@@ -20,6 +20,14 @@ const STATUS_SEQUENCE: { key: MissionStatus; label: string }[] = [
   { key: 'complete', label: 'Mission complete' },
 ];
 
+/** 0-1 fraction used by ScoutTrackingVisual's marker position — a simple
+ * derived value from the status sequence above, not a real distance/GPS
+ * calculation. */
+export function statusProgress(status: MissionStatus) {
+  const index = STATUS_SEQUENCE.findIndex((s) => s.key === status);
+  return index < 0 ? 0 : index / (STATUS_SEQUENCE.length - 1);
+}
+
 export function DeliveryStatus({ status }: { status: MissionStatus }) {
   const currentIndex = STATUS_SEQUENCE.findIndex((s) => s.key === status);
 

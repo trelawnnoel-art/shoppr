@@ -29,6 +29,11 @@ import {
 const SHIRT_SWATCHES = ['#3454D1', '#E14D4D', '#2E8B57', '#1C1A17', '#F2C230'];
 const PANTS_SWATCHES = ['#14141A', '#4A4A52', '#5B3A29', '#2B4C6F'];
 const SHOE_SWATCHES = ['#6B4630', '#1C1A17', '#F5F5F0', '#B23A2E'];
+// Cartoon-polish pass: skin/hair color were already in AvatarOutfit's data
+// layer (Phase 2) but never exposed in the UI — this is the "needs variety"
+// fix that doesn't require new geometry, just wiring up what already exists.
+const SKIN_SWATCHES = ['#E8C9A0', '#F5D7B8', '#C98F5E', '#8D5A3B', '#4A2E1E'];
+const HAIR_SWATCHES = ['#2E2118', '#6B4226', '#B8893A', '#1C1A17', '#D9A441'];
 
 // R3F's Canvas needs a browser (WebGL context, ResizeObserver) and this app
 // otherwise server-renders, so the avatar scene is loaded client-only.
@@ -46,6 +51,21 @@ const AvatarScene = dynamic(() => import('./avatar/AvatarScene').then((mod) => m
     </div>
   ),
 });
+
+// Selfie-based "Realistic" style — see RealisticAvatarScene.tsx for the
+// Avaturn SDK integration. Renders an honest "not connected" placeholder
+// on its own until NEXT_PUBLIC_AVATURN_SUBDOMAIN is set in .env.
+const RealisticAvatarScene = dynamic(
+  () => import('./avatar/RealisticAvatarScene').then((mod) => mod.RealisticAvatarScene),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-64 items-center justify-center text-xs text-muted sm:h-72">
+        Loading…
+      </div>
+    ),
+  }
+);
 
 export function DestinationContent({ destination }: { destination: Direction }) {
   switch (destination) {
@@ -132,6 +152,7 @@ function AiView() {
   const [weightKg, setWeightKg] = useState(BASE_WEIGHT_KG);
   const [outfit, setOutfit] = useState<AvatarOutfit>({});
   const [previewMode, setPreviewMode] = useState(false);
+  const [avatarStyle, setAvatarStyle] = useState<'cartoon' | 'realistic'>('cartoon');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -179,28 +200,63 @@ function AiView() {
           />
         </div>
 
-        <div className="h-64 overflow-hidden rounded-card border border-line bg-surface shadow-card sm:h-72">
-          <AvatarScene
-            heightCm={heightCm}
-            weightKg={weightKg}
-            outfit={outfit}
-            previewMode={previewMode}
-          />
-        </div>
-        <div className="mt-2 flex items-center justify-center gap-3">
-          <p className="text-center text-xs text-muted">Drag to rotate the guide</p>
+        <div className="mb-3 flex items-center justify-center gap-2">
+          <span className="text-xs font-medium text-muted">Avatar style:</span>
           <button
             type="button"
-            onClick={() => setPreviewMode((v) => !v)}
-            aria-pressed={previewMode}
-            className={`rounded-pill px-3 py-1 text-xs font-semibold transition-colors ${
-              previewMode ? 'bg-ink text-paper' : 'border border-line bg-surface text-ink-soft'
+            onClick={() => setAvatarStyle('cartoon')}
+            aria-pressed={avatarStyle === 'cartoon'}
+            className={`rounded-pill px-3 py-1.5 text-xs font-semibold transition-colors ${
+              avatarStyle === 'cartoon'
+                ? 'bg-ink text-paper'
+                : 'border border-line bg-surface text-ink-soft'
             }`}
           >
-            {previewMode ? 'Preview mode: on' : 'Preview mode'}
+            Cartoon
+          </button>
+          <button
+            type="button"
+            onClick={() => setAvatarStyle('realistic')}
+            aria-pressed={avatarStyle === 'realistic'}
+            className={`rounded-pill px-3 py-1.5 text-xs font-semibold transition-colors ${
+              avatarStyle === 'realistic'
+                ? 'bg-ink text-paper'
+                : 'border border-line bg-surface text-ink-soft'
+            }`}
+          >
+            Realistic
           </button>
         </div>
 
+        {avatarStyle === 'cartoon' ? (
+          <>
+            <div className="h-64 overflow-hidden rounded-card border border-line bg-surface shadow-card sm:h-72">
+              <AvatarScene
+                heightCm={heightCm}
+                weightKg={weightKg}
+                outfit={outfit}
+                previewMode={previewMode}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-3">
+              <p className="text-center text-xs text-muted">Drag to rotate the guide</p>
+              <button
+                type="button"
+                onClick={() => setPreviewMode((v) => !v)}
+                aria-pressed={previewMode}
+                className={`rounded-pill px-3 py-1 text-xs font-semibold transition-colors ${
+                  previewMode ? 'bg-ink text-paper' : 'border border-line bg-surface text-ink-soft'
+                }`}
+              >
+                {previewMode ? 'Preview mode: on' : 'Preview mode'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <RealisticAvatarScene />
+        )}
+
+        {avatarStyle === 'cartoon' && (
         <div className="mt-3 flex flex-col gap-3 rounded-card border border-line bg-surface p-3">
           <div className="flex items-center justify-between gap-3">
             <label htmlFor="avatar-height" className="text-xs font-medium text-ink-soft">
@@ -235,6 +291,18 @@ function AiView() {
           />
 
           <SwatchRow
+            label="Skin"
+            swatches={SKIN_SWATCHES}
+            value={outfit.skinColor}
+            onChange={(skinColor) => setOutfit((o) => ({ ...o, skinColor }))}
+          />
+          <SwatchRow
+            label="Hair"
+            swatches={HAIR_SWATCHES}
+            value={outfit.hairColor}
+            onChange={(hairColor) => setOutfit((o) => ({ ...o, hairColor }))}
+          />
+          <SwatchRow
             label="Shirt"
             swatches={SHIRT_SWATCHES}
             value={outfit.shirtColor}
@@ -253,6 +321,7 @@ function AiView() {
             onChange={(shoeColor) => setOutfit((o) => ({ ...o, shoeColor }))}
           />
         </div>
+        )}
       </section>
 
       <form onSubmit={handleSubmit} className="rounded-card border border-line bg-surface p-4 shadow-card">

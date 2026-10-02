@@ -84,10 +84,27 @@ model Mission {
   // column here rather than derived.
   etaMinutes Int?
   note       String
+  messages   Message[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([scoutId])
+}
+
+// Customer<->Scout chat thread for a single Mission. `sender` is a plain
+// string union ('customer' | 'scout') enforced in TS (data/types.ts),
+// same pattern as Mission.status — SQLite has no native enum type. No
+// read-receipt/typing-indicator state: this is a real but minimal first
+// pass, not a full messaging product.
+model Message {
+  id        String   @id @default(cuid())
+  mission   Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  missionId String
+  sender    String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([missionId])
 }
 
 model User {

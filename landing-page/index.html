@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>SHOPPR</title>
+<meta name="description" content="SHOPPR — shop any store through a real person, in real time." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #14141A;
+    --ink-soft: #4A4A52;
+    --muted: #8A8A92;
+    --paper: #F7F6F3;
+    --surface: #FFFFFF;
+    --line: rgba(20, 20, 26, 0.08);
+    --accent-blue: #3454D1;
+    --accent-blue-soft: #E8ECFB;
+    --accent-violet: #7C5CFC;
+    --accent-emerald: #1FA97A;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, .display {
+    font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0 56px;
+  }
+  .wordmark {
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+  }
+
+  .hero {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding-bottom: 64px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent-blue-soft);
+    color: var(--accent-blue);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  h1 {
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin: 0;
+    font-weight: 700;
+    max-width: 14ch;
+  }
+  .lede {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 52ch;
+    margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    padding: 8px 0 64px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 20px 50px -28px rgba(20, 20, 26, 0.25);
+  }
+  .card .icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    font-size: 16px;
+  }
+  .icon.blue { background: var(--accent-blue-soft); }
+  .icon.violet { background: #EFEAFE; }
+  .icon.emerald { background: #E3F6EE; }
+  .card h2 {
+    font-size: 16px;
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  .card p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 22px;
+    border-radius: 22px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-emerald);
+    flex-shrink: 0;
+  }
+
+  footer {
+    padding-top: 56px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ink: #F2F1ED;
+      --ink-soft: #C7C6C2;
+      --muted: #8E8D89;
+      --paper: #121214;
+      --surface: #1B1B1E;
+      --line: rgba(247, 246, 243, 0.1);
+      --accent-blue: #7C93F0;
+      --accent-blue-soft: rgba(124, 147, 240, 0.16);
+    }
+    :root:not([data-theme="light"]) .icon.violet { background: rgba(124, 92, 252, 0.18); }
+    :root:not([data-theme="light"]) .icon.emerald { background: rgba(31, 169, 122, 0.18); }
+    :root:not([data-theme="light"]) .card { box-shadow: none; }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ink: #F2F1ED;
+    --ink-soft: #C7C6C2;
+    --muted: #8E8D89;
+    --paper: #121214;
+    --surface: #1B1B1E;
+    --line: rgba(247, 246, 243, 0.1);
+    --accent-blue: #7C93F0;
+    --accent-blue-soft: rgba(124, 147, 240, 0.16);
+  }
+  :root[data-theme="dark"] .icon.violet { background: rgba(124, 92, 252, 0.18); }
+  :root[data-theme="dark"] .icon.emerald { background: rgba(31, 169, 122, 0.18); }
+  :root[data-theme="dark"] .card { box-shadow: none; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M16 2 L20 16 L16 30 L12 16 Z" fill="currentColor" style="color:var(--ink)" />
+        <path d="M2 16 L16 12 L30 16 L16 20 Z" fill="#3454D1" />
+      </svg>
+      <span class="wordmark">SHOPPR</span>
+    </header>
+
+    <section class="hero">
+      <span class="eyebrow">In development</span>
+      <h1>Shop any store through a real person, in real time.</h1>
+      <p class="lede">
+        SHOPPR connects customers to local gig-worker "Scouts" who shop in-store
+        on their behalf — picking items, confirming sizes and fit, and
+        delivering same day. Customers describe what they need, get matched
+        to nearby stores, and track their Scout from pickup to delivery.
+      </p>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <div class="icon blue">✨</div>
+        <h2>AI-matched shopping</h2>
+        <p>Describe what you need in plain language — SHOPPR AI matches it to real, in-stock items at nearby stores.</p>
+      </div>
+      <div class="card">
+        <div class="icon violet">🧍</div>
+        <h2>3D avatar fitting</h2>
+        <p>Customers build a 3D avatar — sized to their height and build — to preview how clothing from different stores will actually fit before a Scout buys it.</p>
+      </div>
+      <div class="card">
+        <div class="icon emerald">📦</div>
+        <h2>Live Scout tracking</h2>
+        <p>Follow a Mission from "Scout accepted" to "delivered," with direct chat to your Scout the whole way.</p>
+      </div>
+    </div>
+
+    <div class="status">
+      <span class="dot" aria-hidden="true"></span>
+      Actively building — core shopping flow, AI search, and Scout tracking are functional in our working prototype.
+    </div>
+
+    <footer>
+      SHOPPR &middot; built by Tre-lawn Noel
+    </footer>
+  </div>
+</body>
+</html>

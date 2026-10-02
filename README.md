@@ -245,13 +245,60 @@ Living checklist, updated as pieces land. Check here first before asking
   guide…" text fallback exists (for the 3D avatar's Suspense boundary).
   Nothing app-wide for initial load, view transitions, or waiting on API
   calls.
-- **Scout — how that part looks** — fully unbuilt, UI and backend both.
-  No Scout profile view, photo/rating, live tracking, or chat.
-- **3D avatar** (`components/avatar/`) — parametric sizing (height/
-  weight), outfit color-swapping, and joint-based posing/preview mode are
-  done on our own procedural character. A higher-fidelity model
-  (Avaturn or VRoid, still your call) is the pending upgrade path — see
-  the comments in `AvatarCharacter.tsx`.
+- **Scout UI** — built 2026-10-02. `ScoutProfile.tsx` (photo with initials
+  fallback, star rating), `ScoutTrackingVisual.tsx` (a styled live-position
+  marker — honestly NOT real GPS, see its own comment; real maps/
+  geolocation is still the separate unbuilt item below), and
+  `MissionChat.tsx` (a real customer<->Scout thread backed by a new
+  `Message` Prisma model + `GET/POST /api/missions/[id]/messages`, with a
+  few sample threads seeded). All three are wired into `MissionCard.tsx`'s
+  existing "View tracking details" expansion — Scout profile/tracking only
+  show for missions with a Scout assigned, chat only for active
+  (non-complete) ones. Along the way: removed `stores`/`products`/
+  `missions` from `data/mock-data.ts` (confirmed dead — the frontend
+  already fetches all three from the real API, these were just unused
+  leftovers from before that wiring), and fixed a real bug caught during
+  testing — the chat thread didn't auto-scroll, so a sent message posted
+  successfully but was invisible below the fold until scrolled manually.
+- **3D avatar** (`components/avatar/`) — two planned styles, picked
+  2026-10-01: **Cartoon** (our own procedural character) and
+  **Realistic** (selfie-based, via Avaturn).
+  - **Cartoon**: parametric sizing, outfit color-swapping, joint-based
+    posing/preview mode, all working. 2026-10-02 polish pass in response
+    to "still doesn't look cartoon enough / flat & plasticky / needs
+    variety / expression feels off": switched every material from
+    realistic PBR shading to `meshToonMaterial` (flat cel-shaded bands —
+    see `toon-gradient.ts`), pushed the head-to-body ratio further and
+    narrowed the body for more contrast, added eye catchlights (the
+    "alive eyes" fix) and a wider smile, and exposed Skin/Hair color
+    swatches in `AiView` (the data already existed from Phase 2, just
+    wasn't in the UI yet).
+  - **Ceiling hit**: after the polish pass, user compared against real
+    Bitmoji references and correctly identified that the remaining gap
+    (real garment shapes/hairstyles vs. primitive shapes with color
+    swatches) can't be closed by further tuning — it's a 3D-asset
+    problem, not a parameter problem. Researched real alternatives: Snap's
+    Bitmoji Kit is "login with Snapchat + pull your existing Bitmoji," not
+    an in-app creator — ruled out. **Genies** (docs.genies.com) is the
+    real match (true 3D, rigged, genuine garment customization, built by
+    Bitmoji's original creator), but their Web SDK needs an Early Access
+    application (genies.com/contact) rather than instant signup. User is
+    applying; outcome/timeline unknown. No code changes pending until
+    that resolves.
+  - **Realistic**: `RealisticAvatarScene.tsx` wires up the real
+    `@avaturn/sdk` package against Avaturn's documented API (verified
+    against their docs + the SDK's own `.d.ts` files). Project created
+    (subdomain `shoppr`, Export type HttpURL, anonymous accounts on —
+    `NEXT_PUBLIC_AVATURN_SUBDOMAIN` is live in `.env`). First real load
+    confirmed working — Avaturn's actual creator UI rendered inside our
+    app. Not yet completed: a full create-avatar-and-export run (needs a
+    human to click through their selfie/creator flow) — until that
+    happens, whether `AvatarModelScene`'s camera framing (tuned for the
+    old Hitem3D files) suits an Avaturn export is still unverified.
+  - Note: "realistic" here means a selfie-based semi-realistic avatar
+    (face from a photo, body from sliders), not a true 3D body scan —
+    that'd need LiDAR or photogrammetry and is a much bigger undertaking,
+    intentionally out of scope for now.
 - **No compass rotation on select.** The brief says the compass "may"
   rotate the active destination toward north — skipped for v0.1 to keep
   labels always upright and avoid jank risk. Selection is communicated

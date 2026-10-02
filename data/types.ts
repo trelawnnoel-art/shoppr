@@ -46,9 +46,26 @@ export interface Mission {
   storeName: string;
   status: MissionStatus;
   scoutName: string;
+  scoutId: string | null;
   etaMinutes: number | null;
   /** Human, in-the-moment context — e.g. "2 stops away", "Scout has entered the store". */
   note: string;
+}
+
+export interface Scout {
+  id: string;
+  name: string;
+  rating: number;
+  photoUrl: string | null;
+}
+
+export type MessageSender = 'customer' | 'scout';
+
+export interface Message {
+  id: string;
+  sender: MessageSender;
+  body: string;
+  createdAt: string;
 }
 
 export interface UserProfile {

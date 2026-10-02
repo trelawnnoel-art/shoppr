@@ -186,6 +186,23 @@ const missions = [
   },
 ];
 
+// Keyed by mission title (not a stable id yet at seed-definition time) —
+// resolved to a real missionId after the missions loop below creates them.
+// Only active missions get a thread here; a brand-new unassigned mission
+// (IKEA) and a completed one (Apple) have nothing to say yet.
+const messagesByMissionTitle: Record<string, { sender: 'customer' | 'scout'; body: string }[]> = {
+  'Nike Running Shoes': [
+    { sender: 'scout', body: "Hey! I'm Maya, I'll be grabbing your Pegasus today 👟" },
+    { sender: 'customer', body: 'Awesome, thank you! Size 10 if you can double check' },
+    { sender: 'scout', body: 'Confirmed size 10, got them! Heading to checkout now' },
+    { sender: 'scout', body: "On my way to you — should be there in about 12 min" },
+  ],
+  'Birthday gift from Target': [
+    { sender: 'customer', body: 'Hi Devon! Just wanted to say thanks for taking this one' },
+    { sender: 'scout', body: "Of course! Just got inside, heading to find the gift section now" },
+  ],
+};
+
 async function main() {
   // Safe to re-run: this is seed/demo data in a local dev database, not
   // anything a real user has created — clear it first so re-seeding
@@ -216,15 +233,24 @@ async function main() {
   }
   console.log(`Seeded ${scouts.length} scouts.`);
 
+  let messageCount = 0;
   for (const { scoutName, ...mission } of missions) {
-    await prisma.mission.create({
+    const created = await prisma.mission.create({
       data: {
         ...mission,
         scoutId: scoutName ? scoutByName.get(scoutName) : undefined,
       },
     });
+
+    const thread = messagesByMissionTitle[mission.title];
+    if (thread) {
+      for (const msg of thread) {
+        await prisma.message.create({ data: { ...msg, missionId: created.id } });
+        messageCount++;
+      }
+    }
   }
-  console.log(`Seeded ${missions.length} missions.`);
+  console.log(`Seeded ${missions.length} missions and ${messageCount} messages.`);
 
   const { password, ...demoUser } = DEMO_USER;
   await prisma.user.create({ data: { ...demoUser, passwordHash: hashPassword(password) } });

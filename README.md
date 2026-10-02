@@ -1,20 +1,21 @@
-# SHOPPR v0.1 — Home page + Compass
+# SHOPPR
 
-Next.js (App Router) + TypeScript + Tailwind CSS + Framer Motion + Lucide icons.
+Shop any store through a real person, in real time. Next.js (App Router) +
+TypeScript + Tailwind CSS + Prisma/SQLite + Claude (Anthropic API).
 
 ## Run it
 
-I couldn't run `npm install` or a build myself — this sandbox has no internet
-access. Do this in VS Code:
-
 ```bash
 npm install
+cp .env.example .env   # then fill in ANTHROPIC_API_KEY, SESSION_SECRET, etc.
+npm run db:seed
 npm run dev
 ```
 
-Then open `http://localhost:3000`. If `npm install` or `npm run dev` throws
-any error, copy/paste it back to me and I'll fix it — I wrote this carefully
-but couldn't verify it compiles.
+Then open `http://localhost:3000`. See the "Roadmap — what's left" section
+below for current state — most of the backend (stores/products/missions/
+scouts/auth/AI search) is real and working; a few things (payments, real
+maps, loading screens) are still open.
 
 ## What's built (Phases 1–4 from the brief)
 
